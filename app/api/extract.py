@@ -9,14 +9,23 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
-from app.api.schemas import DocumentExtract, ErrorOut, ExtractOut
+from app.api.schemas import DocumentExtract, ErrorOut, ExtractOut, GuardOut
 from app.db.models import Document, Extraction
 from app.db.session import get_session
+from app.guard import (
+    Blocked,
+    check_limits,
+    detect_injection,
+    preamble,
+    scan_output,
+    wrap_untrusted,
+)
 from app.llm.client import Message, ModelClient, ModelError, ModelTimeout
 from app.llm.cost import estimate_cost_usd
 from app.llm.registry import get_model_client
 from app.llm.structured import SchemaError, complete_structured
 from app.settings import Settings, get_settings
+from app.trace import mark_error
 
 router = APIRouter()
 
@@ -29,6 +38,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 
 def _error(status: int, code: str, detail: str) -> JSONResponse:
+    mark_error(code, detail)
     return JSONResponse(
         status_code=status, content=ErrorOut(error=code, detail=detail).model_dump()
     )
@@ -69,14 +79,30 @@ async def extract_document(
             extract=DocumentExtract.model_validate_json(cached.result_json),
         )
 
-    # 2. Context is a budget: never send more than the configured window.
+    # 2. Limits first: a kill switch and a daily budget bound the blast radius of everything below.
+    if settings.guard_enabled:
+        try:
+            check_limits(settings, session)
+        except Blocked as e:
+            return _error(503 if e.kind == "kill_switch" else 429, e.kind, e.detail)
+
+    # 3. Context is a budget: never send more than the configured window. Then treat what is
+    #    left as data: strip known instruction patterns and fence it.
     text = doc.text[: settings.max_input_chars]
+    report = None
+    if settings.guard_enabled:
+        text, report = detect_injection(text)
+        body = wrap_untrusted(text or "(empty document)")
+        system = f"{_PROMPT}\n\n{preamble()}"
+    else:
+        body = text or "(empty document)"
+        system = _PROMPT
     messages = [
-        Message(role="system", content=_PROMPT),
-        Message(role="user", content=f"Document '{doc.filename}':\n\n{text or '(empty document)'}"),
+        Message(role="system", content=system),
+        Message(role="user", content=f"Document '{doc.filename}':\n\n{body}"),
     ]
 
-    # 3. Call with timeout, retry on retryable failures, validate, repair once.
+    # 4. Call with timeout, retry on retryable failures, validate, repair once.
     started = time.perf_counter()
     try:
         result, responses = await complete_structured(
@@ -95,7 +121,17 @@ async def extract_document(
         return _error(502, "schema_error", f"model output did not fit the schema: {e.detail}")
     latency_ms = int((time.perf_counter() - started) * 1000)
 
-    # 4. Account for every token, including the repair call if there was one.
+    # 5. Model output is untrusted input: check its figures against the source.
+    guard_out = None
+    if settings.guard_enabled and report is not None:
+        guard_out = GuardOut(
+            injection_detected=report.injection_detected,
+            patterns=report.patterns,
+            stripped_lines=report.stripped_lines,
+            output_flags=scan_output(result.key_facts, doc.text),
+        )
+
+    # 6. Account for every token, including the repair call if there was one.
     tokens_in = sum(r.tokens_in for r in responses)
     tokens_out = sum(r.tokens_out for r in responses)
     model_used = responses[-1].model
@@ -127,4 +163,5 @@ async def extract_document(
         latency_ms=latency_ms,
         cost_usd=cost,
         extract=result,
+        guard=guard_out,
     )
