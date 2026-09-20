@@ -69,13 +69,8 @@ reader. It must be denied. Then find a way round your own scopes: a second token
 `MCP_TOKENS`, a tool that calls another tool, an argument the schema does not bound. Write down
 what you found, whether or not you fixed it.
 
-What your route adds:
-
-| Route | Exercise |
-| --- | --- |
-| `start` | the above |
-| `core` | plus one new tool (`count_documents_matching(query)`), schema and test included, and the agent using it |
-| `pro` | plus a *plan then execute* variant: one model call produces the whole plan, then the plan runs without the model; compare it with the loop on cost and correctness |
+Your route changes what this week gives you: read `routes/start.md`, `routes/core.md` or
+`routes/pro.md` in this folder (the hub shows yours).
 
 Run the gate as often as you like: `make check WEEK=4`.
 
@@ -84,14 +79,14 @@ Run the gate as often as you like: `make check WEEK=4`.
 - `reflections/week-4.md`: Q1, Q1b, Q2, Q3, the comparison table and paragraph, the MCP finding.
 - PR `week-4 → main`. CI green.
 
-## The session (35 minutes)
+## Self-directed week
 
-You demo: the same question three ways, the agent's transcript, and a denied MCP call. Your mentor
-gives the agent a question that needs two tools and watches the loop. Then Week 5's sentence:
-*injected content is the defining vulnerability, and it does not look like a bug.*
+No session this week. Your mentor's review of this PR lands at the Defence. Use the comparison
+table and the MCP finding in your reflection to make the decisions defensible on your own. An
+unblock call is available after a real attempt.
 
-Pass line: CI green, the comparison table with a shipping decision you can defend, and one thing
-you found wrong with your own permission boundary.
+Pass line, checked at the Defence: CI green, a shipping decision with two numbers behind it, one
+weakness found in your own permission boundary.
 
 ## Optional: self-test
 

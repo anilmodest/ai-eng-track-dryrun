@@ -35,13 +35,24 @@ Then read `tests/weeks/test_week2.py`: the contract for this week.
 
 ## Exercise — build and measure (4–5 hours)
 
-Two files are yours this week. The rest is given.
+Three pieces are yours this week. The rest is given.
 
 1. **`app/retrieval/metrics.py`** — implement `precision_at_k`, `recall_at_k`, `reciprocal_rank`
    and `evaluate`. The docstrings say what each means; the tests say what they return.
 2. **`app/retrieval/chunkers.py::by_heading`** — one chunk per markdown section, heading kept
    with its body; sections over `max_chars` fall back to paragraphs that each still carry the
    heading. A document with no headings behaves like `by_paragraph`.
+3. **`app/retrieval/context.py::select_and_compress`** — the repair. First see the damage:
+
+   ```
+   uv run python scripts/degrade_repair.py
+   ```
+
+   It answers the 30 queries three ways: the top 3 chunks (works), *every* chunk stuffed into
+   the context (degraded: watch the tokens, and with a real model the answers), and the top 10
+   passed through your `select_and_compress`, which as shipped returns everything. Build it: a
+   relevance floor, a shared-term check, sentence-level trimming, a character budget. Run again.
+   The repaired row should hold nearly all of the stuffed row's hits at a fraction of its tokens.
 
 Then measure:
 
@@ -53,29 +64,24 @@ EMBED_PROVIDER=fastembed uv run python scripts/retrieval_eval.py   # real embedd
 Read the two tables side by side. Pick a strategy. Set `CHUNK_STRATEGY` in `.env`. Put both tables
 and one sentence of reasoning in `reflections/week-2.md`.
 
-What your route adds:
-
-| Route | Exercise |
-| --- | --- |
-| `start` | the two files above, and the measurement |
-| `core` | plus hybrid search: combine lexical and semantic scores (reciprocal rank fusion is enough) and show the metric that improved |
-| `pro` | plus a reranker over the top 20 (a cross-encoder via fastembed, or the model itself as judge) and a written cost/latency trade-off |
+Your route changes what this week gives you: read `routes/start.md`, `routes/core.md` or
+`routes/pro.md` in this folder (the hub shows yours).
 
 Run the gate as often as you like: `make check WEEK=2`.
 
 ## Submit (30 minutes)
 
 - `reflections/week-2.md`: Q1, Q1b, Q2, Q3, the two eval tables, the strategy you chose and why.
-- PR `week-2 → main`. CI green. Link to your mentor 24 hours before the session.
+- PR `week-2 → main`. CI green. It is reviewed at the next session.
 
-## The session (35 minutes)
+## Self-directed week
 
-You demo: index, search, and the eval table. Your mentor asks for the number that chose your
-strategy, then runs a few questions the eval set does not contain. Then Week 3's sentence:
-*a system that always answers is worse than one that sometimes declines.*
+No session this week. Your gate, the held-out questions your mentor left with you in session 2,
+the self-test and the hub page are your feedback. Open the PR when the gate is green; it is
+reviewed at session 3. An unblock call is available if you are stuck after a real attempt.
 
-Pass line: CI green, a strategy chosen with a number, and you can explain a precision/recall
-trade-off you saw in your own table.
+Pass line, checked at session 3: CI green, a strategy chosen with a number from your own table,
+and one precision/recall movement explained from that table.
 
 ## Optional: self-test
 

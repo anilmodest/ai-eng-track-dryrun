@@ -66,13 +66,8 @@ Requirements (each one is a test):
 6. **Swappable.** Nothing in `app/api/extract.py` may name a provider, a model or an SDK. The
    gate runs your tests under two different fake providers to prove it.
 
-What your route gives you:
-
-| Route | Given | You build |
-| --- | --- | --- |
-| `start` | `retry.py`, `structured.py`, `cost.py` all working | the endpoint, the cache lookup, the `Extraction` row |
-| `core` | `retry.py` and `structured.py` are stubs | the above, plus retry with backoff and the validate–repair loop |
-| `pro` | as core, plus `cost.py` is a stub | the above, plus routing by input size, `MODEL_FALLBACK_PROVIDER`, and a streaming variant |
+Your route changes what this week gives you: read `routes/start.md`, `routes/core.md` or
+`routes/pro.md` in this folder (the hub shows yours).
 
 Run the gate as often as you like: `make check WEEK=1`.
 
@@ -92,13 +87,22 @@ finding of the week; fix it.
 - Open a PR `week-1 → main`. CI runs the gate. Fix anything red.
 - Send the PR link to your mentor 24 hours before the session.
 
-## The session (35 minutes)
+## Session 2: Direction (45 minutes, end of this week)
 
-You demo: extract a document, extract it again (zero calls), switch provider live. Your mentor
-probes the diff and runs three documents you have not seen. Then the Week 2 sentence.
+Send the PR link a day early. Your mentor reads it and your reflection before the call, not during.
 
-Pass line: CI green, provider switch shown, and you can explain, unprompted, why the model is
-treated as untrusted.
+| Min | What happens |
+| --- | --- |
+| 0–7 | You demo: extract a document, extract it again (zero calls), switch provider live |
+| 7–20 | Your mentor probes the diff, typing questions as review comments on the PR |
+| 20–30 | Held-out documents you have not seen; watch the behaviour, not the code |
+| 30–40 | Route confirmed or corrected, in writing. The plan for Weeks 2–6 set against what you did |
+| 40–45 | Week 2's sentence, said back: *context is an attention budget* |
+
+This is the one point where the route can change. After it, it holds.
+
+Pass line for the week: CI green under both fakes, provider switch shown, and a reason from your
+own work for treating the model as untrusted.
 
 ## Optional: self-test
 

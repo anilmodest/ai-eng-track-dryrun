@@ -34,17 +34,17 @@ repository variable `LIVE_URL` so the deploy workflow runs the smoke test for yo
 3. **Roll back.** Actions → *deploy to hugging face space* → *Run workflow* → `ref: v1.0.0`.
    Run the smoke test again with `--expect-sha` of the tag. Paste both outputs. Note the minutes.
 4. **Fix forward.** Revert the break properly, tag `v1.0.1`, deploy, smoke test.
-5. **Write it up.** Copy `weeks/6/WRITEUP_TEMPLATE.md` to `reflections/writeup.md` and fill it.
+5. **Score what people actually ask.** After a day of real use (yours, a peer's, your mentor's),
+   run `uv run python scripts/sample_live.py --judge` against the deployed database (or your
+   local one). It reads the last twenty `/ask` requests, re-runs retrieval and scores each answer
+   with the judge. Put the lowest five in your reflection with one line each on why. This is
+   the last bullet of Area 8: sampling live traffic for continuous scoring after release.
+6. **Write it up.** Copy `weeks/6/WRITEUP_TEMPLATE.md` to `reflections/writeup.md` and fill it.
    Every number in it comes from `reports/`: `eval.json`, `traces.json`, `attacks.json`,
    `compare.json`. No adjectives where a number will do.
 
-What your route adds:
-
-| Route | Exercise |
-| --- | --- |
-| `start` | the above |
-| `core` | plus a `scripts/sample_live.py` that pulls the last 20 `/ask` traces and scores them with the judge: continuous evaluation, once |
-| `pro` | plus a written incident report for the break in step 2 as if it had reached users: timeline, blast radius from the trace report, what would have caught it earlier |
+Your route changes what this week gives you: read `routes/start.md`, `routes/core.md` or
+`routes/pro.md` in this folder (the hub shows yours).
 
 `make check WEEK=6` runs everything from all six weeks.
 
@@ -54,10 +54,11 @@ What your route adds:
 - `reflections/writeup.md`: the one page.
 - PR `week-6 → main`. CI green. Public repo, live URL in the README, progress page all green.
 
-## The final session (60 minutes with your mentor)
+## Session 4: Defence (60 minutes, end of this week)
 
 The interview shape from the source document: a software round with retrieval, agent and
-evaluation design layered on. Your mentor will:
+evaluation design layered on. The starting measure from session 1 is taken again, with different
+items. Your mentor will:
 
 - ask you to trace one `/ask` request end to end, aloud, from the HTTP call to the cited chunk;
 - pick two decisions from your write-up and ask for the number behind each;

@@ -42,9 +42,11 @@ Read, in this order, and answer in `reflections/week-5.md`, Q1b:
 
 Then read `tests/weeks/test_week5.py`.
 
-## Exercise — get attacked, then build the guard (5 hours)
+## Exercise — instrument, get attacked, then build the guard (5–7 hours)
 
-`app/guard.py` is yours. Every function exists with the right signature and does nothing:
+**On the core and pro routes, `app/trace.py` is signatures only.** Instrument the project first: `begin_request`, `span`, `add_usage`, `mark_error`, `end_request`, and the three readers. The five tracing tests in `tests/weeks/test_week5.py` say what a trace must contain, and `explore/w5_01_read_a_trace.py` shows what a good one looks like (run it on the start route's given tracer if you want to see the target). That is Area 9's exercise: *instrument your own project, then answer questions about it from the traces alone.*
+
+Then `app/guard.py` is yours. Every function exists with the right signature and does nothing:
 
 | Function | Build |
 | --- | --- |
@@ -66,13 +68,8 @@ instruction in it that would change the extraction or the answer, and send it to
 (their forwarded port or live URL). Record what happened in your reflection. When one lands on
 you, add it to `eval/attacks.jsonl` and make it hold. The set grows every cohort.
 
-What your route adds:
-
-| Route | Exercise |
-| --- | --- |
-| `start` | the above |
-| `core` | plus one attack that `detect_injection` cannot catch (another language, an encoding, a paraphrase), a test that proves it, and the defence that does catch it |
-| `pro` | plus per-token budgets in the MCP server, and a `scripts/trace_report.py` extension that shows cost per *user*, not just per request |
+Your route changes what this week gives you: read `routes/start.md`, `routes/core.md` or
+`routes/pro.md` in this folder (the hub shows yours).
 
 ## Submit (30 minutes)
 
@@ -80,14 +77,14 @@ What your route adds:
   (what you sent, what came back, what you changed).
 - PR `week-5 → main`. CI green, including the attack gate.
 
-## The session (35 minutes)
+## Self-directed week
 
-You demo: a trace, the dashboard, and `scripts/attack.py` holding. Your mentor plants an
-instruction in a document you have not seen and sends it to your service. Then Week 6's sentence:
-*interviewers ask what it did for the business, not what it scored.*
+No session this week. The attack you plant in a peer's project and the one that lands on yours
+are the feedback. Record both in the reflection; the Defence will ask about them. An unblock call
+is available after a real attempt.
 
-Pass line: CI green including the attack gate, one attack that got through explained, and you can
-read a cost off a trace without looking at the code.
+Pass line, checked at the Defence: CI green including the attack gate, one attack that got
+through explained with the change it caused, a cost read off a trace without opening code.
 
 ## Optional: self-test
 

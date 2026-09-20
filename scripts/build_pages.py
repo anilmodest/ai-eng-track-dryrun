@@ -28,6 +28,8 @@ from markdown_it import MarkdownIt
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "site" / "index.html"
+_ROUTE_FILE = ROOT / ".route"
+ROUTE = _ROUTE_FILE.read_text().strip() if _ROUTE_FILE.exists() else "start"
 MD = MarkdownIt("commonmark", {"html": True}).enable("table")
 
 WEEK_AREAS: dict[int, list[int]] = {
@@ -62,7 +64,13 @@ CONCEPTS = {
     6: "Interviewers ask what it did for the business, not what it scored.",
 }
 # Which measurement report belongs to which week's card.
-WEEK_REPORTS = {2: "retrieval", 3: "eval", 4: "compare", 5: "attacks", 6: "traces"}
+WEEK_REPORTS: dict[int, list[str]] = {
+    2: ["retrieval", "degrade"],
+    3: ["eval"],
+    4: ["compare"],
+    5: ["attacks"],
+    6: ["traces"],
+}
 
 # The loop, per week: what to run, which file(s) to build, how to measure. Mirrors weeks/N/README.md.
 STEPS = ["Read", "Run", "Build", "Check", "Submit"]
@@ -78,27 +86,37 @@ WEEK_RUN: dict[int, list[str]] = {
     5: ["uv run python explore/w5_01_read_a_trace.py", "uv run python scripts/attack.py"],
     6: ["uv run python scripts/smoke.py http://127.0.0.1:8000"],
 }
-WEEK_BUILD: dict[int, list[str]] = {
+WEEK_BUILD: dict[int, list[str]] = {  # app/trace.py is added to Week 5 on core and pro (below)
     0: [],
     1: ["app/api/extract.py"],
-    2: ["app/retrieval/metrics.py", "app/retrieval/chunkers.py"],
+    2: ["app/retrieval/metrics.py", "app/retrieval/chunkers.py", "app/retrieval/context.py"],
     3: ["app/api/ask.py"],
     4: ["app/agents/agent.py"],
     5: ["app/guard.py"],
     6: ["reflections/writeup.md"],
 }
+if ROUTE != "start":
+    WEEK_BUILD[5] = ["app/trace.py", *WEEK_BUILD[5]]
+
 WEEK_MEASURE: dict[int, str] = {
     1: "make live-check",
-    2: "uv run python scripts/retrieval_eval.py",
+    2: "uv run python scripts/retrieval_eval.py && uv run python scripts/degrade_repair.py",
     3: "uv run python scripts/eval.py",
     4: "uv run python scripts/compare_week4.py",
     5: "uv run python scripts/attack.py",
     6: "uv run python scripts/smoke.py $LIVE_URL --expect-sha <sha>",
 }
+# The four mentor sessions (the PDF's cadence). Other weeks are self-directed.
+WEEK_SESSION: dict[int, str] = {
+    0: "Session 1: Discovery, 45 min",
+    1: "Session 2: Direction, 45 min",
+    3: "Session 3: Observation, 60 min",
+    6: "Session 4: Defence, 60 min",
+}
 WEEK_BUILD_NOTE: dict[int, str] = {
     0: "Nothing to build. Run the service, trace one upload aloud, build the Docker image.",
     1: "The endpoint is a stub with the build order in comments. Every test in tests/weeks/test_week1.py is a sentence from the concept.",
-    2: "Metrics raise NotImplementedError; by_heading falls back to paragraphs. Then measure four strategies.",
+    2: "Metrics raise NotImplementedError; by_heading falls back to paragraphs; select_and_compress returns everything (the degraded pipeline). Build all three, then measure.",
     3: "POST /ask answers 501 until you build the two abstention gates and citations.",
     4: "run_agent returns not_implemented. Build the loop: wall, money checkpoint, recovery.",
     5: "The guard ships as a pass-through: get attacked first, then build the four defences.",
@@ -347,8 +365,26 @@ def report_traces() -> str:
     )
 
 
+def report_degrade() -> str:
+    r = read_json(ROOT / "reports" / "degrade.json")
+    if not r:
+        return ""
+    rows: list[list[object]] = [
+        [
+            mode,
+            f"{v['hits']}/{v['of']}",
+            v["mean_tokens_in"],
+            f"{v['total_cost_usd']:.5f}",
+            v["mean_latency_ms"],
+        ]
+        for mode, v in r.items()
+    ]
+    return table(["mode", "hits", "mean tokens in", "total $", "mean ms"], rows)
+
+
 REPORTS = {
     "retrieval": ("Retrieval evaluation", report_retrieval),
+    "degrade": ("Degrade and repair", report_degrade),
     "eval": ("Evaluation gate", report_eval),
     "compare": ("Three ways compared", report_compare),
     "attacks": ("Attack set", report_attacks),
@@ -465,6 +501,7 @@ footer { color: var(--muted); font-size: 13px; margin-top: 40px; border-top: 1px
 .stepper { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 16px 0 6px; }
 .stepper a { display: block; text-decoration: none; color: var(--muted); font-size: 12px; text-align: center; padding: 8px 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
 .stepper a b { display: block; font-size: 15px; color: var(--fg); }
+.stepper a small { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
 .stepper a.done { border-color: var(--green); } .stepper a.done b { color: var(--green); }
 .stepper a.now { border-color: var(--accent); border-width: 2px; } .stepper a.now b { color: var(--accent); }
 .stepper a.red b { color: var(--red); }
@@ -701,9 +738,23 @@ def week_card(w: Week, repo: str, current: bool) -> str:
         f'<li><code>{esc(f)}</code> &middot; <a href="{_gh(repo, f)}">on GitHub</a></li>'
         for f in WEEK_BUILD.get(w.n, [])
     )
+    route_note = md(ROOT / "weeks" / str(w.n) / "routes" / f"{ROUTE}.md")
+    route_html = (
+        f"<details open><summary>Your route: {esc(ROUTE)}</summary><div class='doc'>{route_note}</div>"
+        + (
+            f"<p class='muted'>Worked example: <code>weeks/{w.n}/routes/worked_example.py</code> "
+            f"&middot; <a href='{_gh(repo, f'weeks/{w.n}/routes/worked_example.py')}'>on GitHub</a></p>"
+            if ROUTE == "start"
+            and (ROOT / "weeks" / str(w.n) / "routes" / "worked_example.py").exists()
+            else ""
+        )
+        + "</details>"
+        if route_note
+        else ""
+    )
     build = (
         f"<li class='{cls('Build')}'><div class='k'>Build<small>~4–5 h</small></div><div>"
-        f"<p>{esc(WEEK_BUILD_NOTE.get(w.n, ''))}</p>"
+        f"<p>{esc(WEEK_BUILD_NOTE.get(w.n, ''))}</p>{route_html}"
         + (f"<ul>{files}</ul>" if files else "")
         + (
             f"<p>Then measure: <code>{esc(WEEK_MEASURE[w.n])}</code> and paste the table into your reflection.</p>"
@@ -714,12 +765,11 @@ def week_card(w: Week, repo: str, current: bool) -> str:
     )
     # Check
     rep_html = ""
-    rep_key = WEEK_REPORTS.get(w.n)
-    if rep_key:
+    for rep_key in WEEK_REPORTS.get(w.n, []):
         title, fn = REPORTS[rep_key]
         body = fn()
         if body:
-            rep_html = f"<details><summary>{title} (last run)</summary>{body}</details>"
+            rep_html += f"<details><summary>{title} (last run)</summary>{body}</details>"
     check = (
         f"<li class='{cls('Check')}'><div class='k'>Check<small>as often as you like</small></div><div>"
         f"<code class='cmd'>make check WEEK={w.n}</code>"
@@ -745,10 +795,15 @@ def week_card(w: Week, repo: str, current: bool) -> str:
         if w.reflection_q1
         else f"<span class='muted'>reflections/week-{w.n}.md not written yet</span>"
     )
+    session = WEEK_SESSION.get(w.n)
+    after = (
+        f"<p class='muted' style='margin-top:8px'><b>{esc(session)}</b> follows this week: send the PR link a day before.</p>"
+        if session
+        else "<p class='muted' style='margin-top:8px'>Self-directed week: no session. The gate, the held-out inputs and the self-test are your feedback; this PR is reviewed at the next session.</p>"
+    )
     submit = (
-        f"<li class='{cls('Submit')}'><div class='k'>Submit<small>24 h before the session</small></div><div>"
-        f"<p>{pr_line}</p><h3>Your reflection, Q1</h3>{refl}"
-        f"<p class='muted' style='margin-top:8px'>Then the session: demo, probes on the diff, held-out inputs, next week's sentence.</p>"
+        f"<li class='{cls('Submit')}'><div class='k'>Submit<small>{'a day before the session' if session else 'when the gate is green'}</small></div><div>"
+        f"<p>{pr_line}</p><h3>Your reflection, Q1</h3>{refl}{after}"
         f"</div></li>"
     )
     quiz = (
@@ -874,7 +929,12 @@ def render(weeks: list[Week], route: str, live_url: str, repo: str) -> str:
     for w in weeks:
         c = "done" if w.done else ("now" if current is w else ("red" if w.state == "red" else ""))
         mark = "&#10003;" if w.done else ("&#9679;" if current is w else "&#9675;")
-        stepper += f"<a class='{c}' href='#week-{w.n}'><b>{mark}</b>Week {w.n}</a>"
+        tag = (
+            f"<small>{esc(WEEK_SESSION[w.n].split(':')[0])}</small>"
+            if w.n in WEEK_SESSION
+            else "<small>self-directed</small>"
+        )
+        stepper += f"<a class='{c}' href='#week-{w.n}'><b>{mark}</b>Week {w.n}{tag}</a>"
 
     # ---- sidebar progress
     prog = "".join(
@@ -959,14 +1019,14 @@ def render(weeks: list[Week], route: str, live_url: str, repo: str) -> str:
 
 <div id="next">{next_html}</div>
 <div class="stepper">{stepper}</div>
-<p class="legend">Done means the week's gate is green and its pull request is merged. Click a week to open it.</p>
+<p class="legend">Done means the week's gate is green and its pull request is merged. Four mentor sessions: Discovery, Direction, Observation, Defence; the other weeks are self-directed. Click a week to open it.</p>
 
 <h2 id="loop">How you work</h2>
 <p>The same loop every week. Six words you will see everywhere on this page and in the repo.</p>
 <div class="loop">
   <span>Codespace</span><i>&rarr;</i><span>branch <code>week-N</code></span><i>&rarr;</i>
   <span class="act">Read</span><i>&rarr;</i><span class="act">Run</span><i>&rarr;</i><span class="act">Build</span><i>&rarr;</i>
-  <span class="act">Check</span><i>&rarr;</i><span class="act">Submit</span><i>&rarr;</i><span class="act">Defend</span><i>&rarr;</i><span>merge</span>
+  <span class="act">Check</span><i>&rarr;</i><span class="act">Submit</span><i>&rarr;</i><span>merge</span><i>&rarr;</i><span class="act">Defend</span> <i>at one of the four sessions</i>
 </div>
 <div class="doc">{track.get("How a week works", "")}</div>
 <p class="nextlink">Next: <a href="#codespace">inside your Codespace &rarr;</a></p>
@@ -1082,8 +1142,7 @@ def render(weeks: list[Week], route: str, live_url: str, repo: str) -> str:
 
 def main() -> int:
     weeks = load_weeks()
-    route_file = ROOT / ".route"
-    route = route_file.read_text().strip() if route_file.exists() else "start"
+    route = ROUTE
     live_url = os.environ.get("LIVE_URL", "").strip().rstrip("/")
     repo = os.environ.get("GITHUB_REPOSITORY", "anilmodest/ai-eng-track")
     OUT.parent.mkdir(exist_ok=True)
