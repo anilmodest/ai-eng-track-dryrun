@@ -40,7 +40,7 @@ class DocumentExtract(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     doc_type: DocType
     summary: str
-    key_facts: list[str] = Field(min_length=5, max_length=8)  # tightened after a review
+    key_facts: list[str] = Field(min_length=3, max_length=5)
     confidence: float = Field(ge=0.0, le=1.0)
 
     @field_validator("summary")
